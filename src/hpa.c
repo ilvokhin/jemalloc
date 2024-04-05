@@ -289,26 +289,9 @@ hpa_ndirty_max(tsdn_t *tsdn, hpa_shard_t *shard) {
 }
 
 static bool
-hpa_hugify_blocked_by_ndirty(tsdn_t *tsdn, hpa_shard_t *shard) {
-	malloc_mutex_assert_owner(tsdn, &shard->mtx);
-	hpdata_t *to_hugify = psset_pick_hugify(&shard->psset);
-	if (to_hugify == NULL) {
-		return false;
-	}
-	return hpa_adjusted_ndirty(tsdn, shard)
-	    + hpdata_nretained_get(to_hugify) > hpa_ndirty_max(tsdn, shard);
-}
-
-static bool
 hpa_should_purge(tsdn_t *tsdn, hpa_shard_t *shard) {
 	malloc_mutex_assert_owner(tsdn, &shard->mtx);
-	if (hpa_adjusted_ndirty(tsdn, shard) > hpa_ndirty_max(tsdn, shard)) {
-		return true;
-	}
-	if (hpa_hugify_blocked_by_ndirty(tsdn, shard)) {
-		return true;
-	}
-	return false;
+	return hpa_adjusted_ndirty(tsdn, shard) > hpa_ndirty_max(tsdn, shard);
 }
 
 static void
@@ -462,10 +445,6 @@ hpa_try_purge(tsdn_t *tsdn, hpa_shard_t *shard) {
 static bool
 hpa_try_hugify(tsdn_t *tsdn, hpa_shard_t *shard) {
 	malloc_mutex_assert_owner(tsdn, &shard->mtx);
-
-	if (hpa_hugify_blocked_by_ndirty(tsdn, shard)) {
-		return false;
-	}
 
 	hpdata_t *to_hugify = psset_pick_hugify(&shard->psset);
 	if (to_hugify == NULL) {

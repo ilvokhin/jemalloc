@@ -109,15 +109,11 @@ struct hpdata_s {
 	/* A bitmap with bits set in the active pages. */
 	fb_group_t active_pages[FB_NGROUPS(HUGEPAGE_PAGES)];
 
-	/*
-	 * Number of dirty or active pages, and a bitmap tracking them.  One
-	 * way to think of this is as which pages are dirty from the OS's
-	 * perspective.
-	 */
-	size_t h_ntouched;
+	/* Number of dirty pages. */
+	size_t h_ndirty;
 
-	/* The touched pages (using the same definition as above). */
-	fb_group_t touched_pages[FB_NGROUPS(HUGEPAGE_PAGES)];
+	/* A bitmap with bits set in the dirty pages. */
+	fb_group_t dirty_pages[FB_NGROUPS(HUGEPAGE_PAGES)];
 };
 
 TYPED_LIST(hpdata_empty_list, hpdata_t, ql_link_empty)
@@ -283,19 +279,27 @@ hpdata_nactive_get(hpdata_t *hpdata) {
 	return hpdata->h_nactive;
 }
 
+
+/*
+ * Number of dirty or active pages.  One way to think of this is as which
+ * pages are dirty from the OS's perspective.
+ */
 static inline size_t
 hpdata_ntouched_get(hpdata_t *hpdata) {
-	return hpdata->h_ntouched;
+	if (hpdata->h_huge) {
+		return HUGEPAGE_PAGES;
+	}
+	return hpdata->h_nactive + hpdata->h_ndirty;
 }
 
 static inline size_t
 hpdata_ndirty_get(hpdata_t *hpdata) {
-	return hpdata->h_ntouched - hpdata->h_nactive;
+	return hpdata->h_ndirty;
 }
 
 static inline size_t
 hpdata_nretained_get(hpdata_t *hpdata) {
-	return HUGEPAGE_PAGES - hpdata->h_ntouched;
+	return HUGEPAGE_PAGES - hpdata_ntouched_get(hpdata);
 }
 
 static inline void
@@ -319,14 +323,8 @@ hpdata_consistent(hpdata_t *hpdata) {
 	    != hpdata->h_nactive) {
 		return false;
 	}
-	if (fb_scount(hpdata->touched_pages, HUGEPAGE_PAGES, 0, HUGEPAGE_PAGES)
-	    != hpdata->h_ntouched) {
-		return false;
-	}
-	if (hpdata->h_ntouched < hpdata->h_nactive) {
-		return false;
-	}
-	if (hpdata->h_huge && hpdata->h_ntouched != HUGEPAGE_PAGES) {
+	if (fb_scount(hpdata->dirty_pages, HUGEPAGE_PAGES, 0, HUGEPAGE_PAGES)
+	    != hpdata->h_ndirty) {
 		return false;
 	}
 	if (hpdata_changing_state_get(hpdata)
