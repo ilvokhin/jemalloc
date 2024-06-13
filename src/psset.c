@@ -215,11 +215,9 @@ psset_purge_list_ind(hpdata_t *ps) {
 
 	pszind_t pind = sz_psz2ind(sz_psz_quantize_floor(ndirty << LG_PAGE));
 	/*
-	 * For non-empty slabs, we may reuse them again.  Prefer purging
-	 * non-hugeified slabs before hugeified ones then, among pages of
-	 * similar dirtiness.  We still get some benefit from the hugification.
+	 * Prefer purging non-hugified slabs first even if they are dirtier.
 	 */
-	return (size_t)pind * 2 + (hpdata_huge_get(ps) ? 0 : 1);
+	return (size_t)pind + PSSET_NPSIZES * (hpdata_huge_get(ps) ? 0 : 1);
 }
 
 static void
