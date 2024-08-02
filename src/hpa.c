@@ -311,6 +311,23 @@ hpa_should_purge(tsdn_t *tsdn, hpa_shard_t *shard) {
 	return false;
 }
 
+static bool
+hpa_should_purge_paced(tsdn_t *tsdn, hpa_shard_t *shard, nstime_t* last_purge) {
+	malloc_mutex_assert_owner(tsdn, &shard->mtx);
+	/*
+	 * Make sure we respect purge interval setting and don't purge
+	 * too frequently.
+	 */
+	if (shard->opts.strict_min_purge_interval) {
+		uint64_t since_last_purge_ms = shard->central->hooks.ms_since(
+		    last_purge);
+		if (since_last_purge_ms < shard->opts.min_purge_interval_ms) {
+		     return false;
+		}
+	}
+	return hpa_should_purge(tsdn, shard);
+}
+
 static void
 hpa_update_purge_hugify_eligibility(tsdn_t *tsdn, hpa_shard_t *shard,
     hpdata_t *ps) {
@@ -377,18 +394,6 @@ hpa_shard_has_deferred_work(tsdn_t *tsdn, hpa_shard_t *shard) {
 static bool
 hpa_try_purge(tsdn_t *tsdn, hpa_shard_t *shard) {
 	malloc_mutex_assert_owner(tsdn, &shard->mtx);
-
-	/*
-	 * Make sure we respect purge interval setting and don't purge
-	 * too frequently.
-	 */
-	if (shard->opts.strict_min_purge_interval) {
-		uint64_t since_last_purge_ms = shard->central->hooks.ms_since(
-		    &shard->last_purge);
-		if (since_last_purge_ms < shard->opts.min_purge_interval_ms) {
-		     return false;
-		}
-	}
 
 	hpdata_t *to_purge = psset_pick_purge(&shard->psset);
 	if (to_purge == NULL) {
@@ -541,13 +546,15 @@ hpa_shard_maybe_do_deferred_work(tsdn_t *tsdn, hpa_shard_t *shard,
 	bool purged = false;
 	size_t max_ops = (forced ? (size_t)-1 : 16);
 	size_t nops = 0;
+	nstime_t* last_purge = &shard->last_purge;
 	do {
 		/*
 		 * Always purge before hugifying, to make sure we get some
 		 * ability to hit our quiescence targets.
 		 */
 		purged = false;
-		while (hpa_should_purge(tsdn, shard) && nops < max_ops) {
+		while (hpa_should_purge_paced(tsdn, shard, last_purge) &&
+		    nops < max_ops) {
 			purged = hpa_try_purge(tsdn, shard);
 			if (!purged) {
 				/*
