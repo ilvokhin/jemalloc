@@ -122,6 +122,7 @@ C_SRCS := $(srcroot)src/jemalloc.c \
 	$(srcroot)src/fxp.c \
 	$(srcroot)src/san.c \
 	$(srcroot)src/san_bump.c \
+	$(srcroot)src/hist.c \
 	$(srcroot)src/hook.c \
 	$(srcroot)src/hpa.c \
 	$(srcroot)src/hpa_hooks.c \
@@ -226,6 +227,7 @@ TESTS_UNIT := \
 	${srcroot}test/unit/san.c \
 	${srcroot}test/unit/san_bump.c \
 	$(srcroot)test/unit/hash.c \
+	$(srcroot)test/unit/hist.c \
 	$(srcroot)test/unit/hook.c \
 	$(srcroot)test/unit/hpa.c \
 	$(srcroot)test/unit/hpa_background_thread.c \
