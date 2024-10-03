@@ -728,6 +728,62 @@ TEST_BEGIN(test_experimental_max_purge_nhp) {
 }
 TEST_END
 
+TEST_BEGIN(test_stats) {
+	test_skip_if(!hpa_supported());
+
+	hpa_hooks_t hooks;
+	hooks.map = &defer_test_map;
+	hooks.unmap = &defer_test_unmap;
+	hooks.purge = &defer_test_purge;
+	hooks.hugify = &defer_test_hugify;
+	hooks.dehugify = &defer_test_dehugify;
+	hooks.curtime = &defer_test_curtime;
+	hooks.ms_since = &defer_test_ms_since;
+
+	hpa_shard_opts_t opts = test_hpa_shard_opts_default;
+	opts.deferral_allowed = true;
+
+	hpa_shard_t *shard = create_test_data(&hooks, &opts);
+
+	bool deferred_work_generated = false;
+
+	nstime_init(&defer_curtime, 0);
+	tsdn_t *tsdn = tsd_tsdn(tsd_fetch());
+	enum {NHUGPAGES = 3, NALLOCS = NHUGPAGES * HUGEPAGE_PAGES};
+	edata_t *edatas[NALLOCS];
+	for (int i = 0; i < NALLOCS; i++) {
+		edatas[i] = pai_alloc(tsdn, &shard->pai, PAGE, PAGE, false,
+		    false, false, &deferred_work_generated);
+		expect_ptr_not_null(edatas[i], "Unexpected null edata");
+	}
+	expect_zu_eq(NHUGPAGES, shard->stats.nextracted, "");
+	expect_zu_eq(NHUGPAGES, shard->stats.nempty_used, "");
+
+	/* Deallocate 2 hugepages. */
+	for (int i = 0; i < 2 * (int)HUGEPAGE_PAGES; i++) {
+		pai_dalloc(tsdn, &shard->pai, edatas[i],
+		    &deferred_work_generated);
+	}
+	nstime_init2(&defer_curtime, 6, 0);
+	hpa_shard_do_deferred_work(tsdn, shard);
+
+	/*
+	 * Two hugepages are completely empty, so we should purge them and
+	 * increment corresponding counter.
+	 */
+	expect_zu_eq(2, shard->stats.nempty_purges, "");
+
+	edata_t *edata = pai_alloc(tsdn, &shard->pai, PAGE, PAGE, false,
+	    false, false, &deferred_work_generated);
+	expect_ptr_not_null(edata, "Unexpected null edata");
+
+	expect_zu_eq(NHUGPAGES, shard->stats.nextracted, "");
+	expect_zu_eq(NHUGPAGES + 1, shard->stats.nempty_used, "");
+
+	destroy_test_data(shard);
+}
+TEST_END
+
 int
 main(void) {
 	/*
@@ -751,5 +807,6 @@ main(void) {
 	    test_no_min_purge_interval,
 	    test_min_purge_interval,
 	    test_purge,
-	    test_experimental_max_purge_nhp);
+	    test_experimental_max_purge_nhp,
+	    test_stats);
 }

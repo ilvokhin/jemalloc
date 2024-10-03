@@ -36,6 +36,7 @@ hpdata_init(hpdata_t *hpdata, void *addr, uint64_t age) {
 	fb_init(hpdata->active_pages, HUGEPAGE_PAGES);
 	hpdata->h_ntouched = 0;
 	fb_init(hpdata->touched_pages, HUGEPAGE_PAGES);
+	hpdata->h_purged = false;
 
 	hpdata_assert_consistent(hpdata);
 }
@@ -249,6 +250,8 @@ hpdata_purge_begin(hpdata_t *hpdata, hpdata_purge_state_t *purge_state) {
 	    purge_state->to_purge, HUGEPAGE_PAGES, 0, HUGEPAGE_PAGES));
 	assert(ndirty == fb_scount(dirty_pages, HUGEPAGE_PAGES, 0,
 	    HUGEPAGE_PAGES));
+
+	hpdata->h_purged = true;
 
 	hpdata_assert_consistent(hpdata);
 

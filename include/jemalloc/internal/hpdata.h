@@ -118,6 +118,9 @@ struct hpdata_s {
 
 	/* The touched pages (using the same definition as above). */
 	fb_group_t touched_pages[FB_NGROUPS(HUGEPAGE_PAGES)];
+
+	/* Was this pageslab purged before? */
+	bool h_purged;
 };
 
 TYPED_LIST(hpdata_empty_list, hpdata_t, ql_link_empty)
@@ -296,6 +299,16 @@ hpdata_ndirty_get(hpdata_t *hpdata) {
 static inline size_t
 hpdata_nretained_get(hpdata_t *hpdata) {
 	return HUGEPAGE_PAGES - hpdata->h_ntouched;
+}
+
+static inline bool
+hpdata_purged_get(hpdata_t* hpdata) {
+	return hpdata->h_purged;
+}
+
+static inline void
+hpdata_purged_set(hpdata_t* hpdata, bool purged) {
+	hpdata->h_purged = purged;
 }
 
 static inline void

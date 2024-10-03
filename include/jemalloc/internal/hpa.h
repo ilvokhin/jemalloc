@@ -56,6 +56,13 @@ struct hpa_shard_nonderived_stats_s {
 	uint64_t npurges;
 
 	/*
+	 * The number of empty pages we've purged.
+	 *
+	 * Guarded by mtx.
+	 */
+	uint64_t nempty_purges;
+
+	/*
 	 * The number of times we've hugified a pageslab.
 	 *
 	 * Guarded by mtx.
@@ -67,6 +74,38 @@ struct hpa_shard_nonderived_stats_s {
 	 * Guarded by mtx.
 	 */
 	uint64_t ndehugifies;
+
+	/*
+	 * The number of times we've hugified a pageslab that was purged at some
+	 * time.
+	 *
+	 * Guarded by mtx.
+	 */
+	uint64_t nhugifies_purged;
+	/*
+	 * The number of times we've dehugified a pageslab that was purged at some
+	 * time.
+	 *
+	 * Guarded by mtx.
+	 */
+	uint64_t ndehugifies_purged;
+
+	/*
+	 * The number of times we've used an empty pageslab, because we
+	 * couldn't find a non-empty slab to place an allocation on. Both newly
+	 * extracted and reused slabs are counted here.
+	 *
+	 *  Guarded by mtx.
+	 */
+	uint64_t nempty_used;
+
+	/*
+	 * The number of times we've extracted a new pageslab, because we
+	 * couldn't find a better one to place an allocation on.
+	 *
+	 * Guarded by mtx.
+	 */
+	uint64_t nextracted;
 };
 
 /* Completely derived; only used by CTL. */

@@ -839,17 +839,32 @@ stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
 
 	uint64_t npurge_passes;
 	uint64_t npurges;
+	uint64_t nempty_purges;
 	uint64_t nhugifies;
 	uint64_t ndehugifies;
+	uint64_t nhugifies_purged;
+	uint64_t ndehugifies_purged;
+	uint64_t nempty_used;
+	uint64_t nextracted;
 
 	CTL_M2_GET("stats.arenas.0.hpa_shard.npurge_passes",
 	    i, &npurge_passes, uint64_t);
 	CTL_M2_GET("stats.arenas.0.hpa_shard.npurges",
 	    i, &npurges, uint64_t);
+	CTL_M2_GET("stats.arenas.0.hpa_shard.nempty_purges",
+	    i, &nempty_purges, uint64_t);
 	CTL_M2_GET("stats.arenas.0.hpa_shard.nhugifies",
 	    i, &nhugifies, uint64_t);
 	CTL_M2_GET("stats.arenas.0.hpa_shard.ndehugifies",
 	    i, &ndehugifies, uint64_t);
+	CTL_M2_GET("stats.arenas.0.hpa_shard.nhugifies_purged",
+	    i, &nhugifies_purged, uint64_t);
+	CTL_M2_GET("stats.arenas.0.hpa_shard.ndehugifies_purged",
+	    i, &ndehugifies_purged, uint64_t);
+	CTL_M2_GET("stats.arenas.0.hpa_shard.nempty_used",
+	    i, &nempty_used, uint64_t);
+	CTL_M2_GET("stats.arenas.0.hpa_shard.nextracted",
+	    i, &nextracted, uint64_t);
 
 	size_t npageslabs_huge;
 	size_t nactive_huge;
@@ -870,23 +885,43 @@ stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
 	    "HPA shard stats:\n"
 	    "  Purge passes: %" FMTu64 " (%" FMTu64 " / sec)\n"
 	    "  Purges: %" FMTu64 " (%" FMTu64 " / sec)\n"
+	    "  Empty purges: %" FMTu64 " (%" FMTu64 " / sec)\n"
 	    "  Hugeifies: %" FMTu64 " (%" FMTu64 " / sec)\n"
 	    "  Dehugifies: %" FMTu64 " (%" FMTu64 " / sec)\n"
+	    "  Purged hugeifies: %" FMTu64 " (%" FMTu64 " / sec)\n"
+	    "  Purged dehugifies: %" FMTu64 " (%" FMTu64 " / sec)\n"
+	    "  Empty used: %" FMTu64 " (%" FMTu64 " / sec)\n"
+	    "  Extracted: %" FMTu64 " (%" FMTu64 " / sec)\n"
 	    "\n",
 	    npurge_passes, rate_per_second(npurge_passes, uptime),
 	    npurges, rate_per_second(npurges, uptime),
+	    nempty_purges, rate_per_second(nempty_purges, uptime),
 	    nhugifies, rate_per_second(nhugifies, uptime),
-	    ndehugifies, rate_per_second(ndehugifies, uptime));
+	    ndehugifies, rate_per_second(ndehugifies, uptime),
+	    nhugifies_purged, rate_per_second(nhugifies_purged, uptime),
+	    ndehugifies_purged, rate_per_second(ndehugifies_purged, uptime),
+	    nempty_used, rate_per_second(nempty_used, uptime),
+	    nextracted, rate_per_second(nextracted, uptime));
 
 	emitter_json_object_kv_begin(emitter, "hpa_shard");
 	emitter_json_kv(emitter, "npurge_passes", emitter_type_uint64,
 	    &npurge_passes);
 	emitter_json_kv(emitter, "npurges", emitter_type_uint64,
 	    &npurges);
+	emitter_json_kv(emitter, "nempty_purges", emitter_type_uint64,
+	    &nempty_purges);
 	emitter_json_kv(emitter, "nhugifies", emitter_type_uint64,
 	    &nhugifies);
 	emitter_json_kv(emitter, "ndehugifies", emitter_type_uint64,
 	    &ndehugifies);
+	emitter_json_kv(emitter, "nhugifies_purged", emitter_type_uint64,
+	    &nhugifies_purged);
+	emitter_json_kv(emitter, "ndehugifies_purged", emitter_type_uint64,
+	    &ndehugifies_purged);
+	emitter_json_kv(emitter, "nempty_used", emitter_type_uint64,
+	    &nempty_used);
+	emitter_json_kv(emitter, "nextracted", emitter_type_uint64,
+	    &nextracted);
 
 	/* Next, full slab stats. */
 	CTL_M2_GET("stats.arenas.0.hpa_shard.full_slabs.npageslabs_huge",

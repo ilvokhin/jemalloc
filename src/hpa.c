@@ -209,8 +209,13 @@ hpa_shard_init(hpa_shard_t *shard, hpa_central_t *central, emap_t *emap,
 
 	shard->stats.npurge_passes = 0;
 	shard->stats.npurges = 0;
+	shard->stats.nempty_purges = 0;
 	shard->stats.nhugifies = 0;
 	shard->stats.ndehugifies = 0;
+	shard->stats.nhugifies_purged = 0;
+	shard->stats.ndehugifies_purged = 0;
+	shard->stats.nempty_used = 0;
+	shard->stats.nextracted = 0;
 
 	/*
 	 * Fill these in last, so that if an hpa_shard gets used despite
@@ -241,8 +246,13 @@ hpa_shard_nonderived_stats_accum(hpa_shard_nonderived_stats_t *dst,
     hpa_shard_nonderived_stats_t *src) {
 	dst->npurge_passes += src->npurge_passes;
 	dst->npurges += src->npurges;
+	dst->nempty_purges += src->nempty_purges;
 	dst->nhugifies += src->nhugifies;
 	dst->ndehugifies += src->ndehugifies;
+	dst->nhugifies_purged += src->nhugifies_purged;
+	dst->ndehugifies_purged += src->ndehugifies_purged;
+	dst->nempty_used += src->nempty_used;
+	dst->nextracted += src->nextracted;
 }
 
 void
@@ -411,6 +421,8 @@ hpa_try_purge(tsdn_t *tsdn, hpa_shard_t *shard) {
 
 	/* Gather all the metadata we'll need during the purge. */
 	bool dehugify = hpdata_huge_get(to_purge);
+	bool empty = hpdata_empty(to_purge);
+	bool purged = hpdata_purged_get(to_purge);
 	hpdata_purge_state_t purge_state;
 	size_t num_to_purge = hpdata_purge_begin(to_purge, &purge_state);
 
@@ -440,10 +452,16 @@ hpa_try_purge(tsdn_t *tsdn, hpa_shard_t *shard) {
 	shard->npending_purge -= num_to_purge;
 	shard->stats.npurge_passes++;
 	shard->stats.npurges += purges_this_pass;
+	if (empty) {
+		shard->stats.nempty_purges++;
+	}
 	shard->central->hooks.curtime(&shard->last_purge,
 	    /* first_reading */ false);
 	if (dehugify) {
 		shard->stats.ndehugifies++;
+		if (purged) {
+			shard->stats.ndehugifies_purged++;
+		}
 	}
 
 	/* The hpdata updates. */
@@ -503,6 +521,9 @@ hpa_try_hugify(tsdn_t *tsdn, hpa_shard_t *shard) {
 
 	malloc_mutex_lock(tsdn, &shard->mtx);
 	shard->stats.nhugifies++;
+	if (hpdata_purged_get(to_hugify)) {
+		shard->stats.nhugifies_purged++;
+	}
 
 	psset_update_begin(&shard->psset, to_hugify);
 	hpdata_hugify(to_hugify);
@@ -618,6 +639,8 @@ hpa_try_alloc_one_no_grow(tsdn_t *tsdn, hpa_shard_t *shard, size_t size,
 		 * definitionally the youngest in this hpa shard.
 		 */
 		hpdata_age_set(ps, shard->age_counter++);
+		hpdata_purged_set(ps, false);
+		shard->stats.nempty_used++;
 	}
 
 	void *addr = hpdata_reserve_alloc(ps, size);
@@ -732,6 +755,7 @@ hpa_alloc_batch_psset(tsdn_t *tsdn, hpa_shard_t *shard, size_t size,
 	 */
 	malloc_mutex_lock(tsdn, &shard->mtx);
 	psset_insert(&shard->psset, ps);
+	shard->stats.nextracted++;
 	malloc_mutex_unlock(tsdn, &shard->mtx);
 
 	nsuccess += hpa_try_alloc_batch_no_grow(tsdn, shard, size, &oom,
