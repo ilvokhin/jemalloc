@@ -831,12 +831,16 @@ stats_arena_extents_print(emitter_t *emitter, unsigned i) {
 }
 
 static void
-stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
-	emitter_row_t header_row;
-	emitter_row_init(&header_row);
-	emitter_row_t row;
-	emitter_row_init(&row);
+stats_arena_hpa_shard_sec_print(emitter_t *emitter, unsigned i) {
+	size_t sec_bytes;
+	CTL_M2_GET("stats.arenas.0.hpa_sec_bytes", i, &sec_bytes, size_t);
+	emitter_kv(emitter, "sec_bytes", "Bytes in small extent cache",
+	    emitter_type_size, &sec_bytes);
+}
 
+static void
+stats_arena_hpa_shard_global_print(emitter_t *emitter, unsigned i,
+    uint64_t uptime) {
 	uint64_t npurge_passes;
 	uint64_t npurges;
 	uint64_t nempty_purges;
@@ -866,21 +870,6 @@ stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
 	CTL_M2_GET("stats.arenas.0.hpa_shard.nextracted",
 	    i, &nextracted, uint64_t);
 
-	size_t npageslabs_huge;
-	size_t nactive_huge;
-	size_t ndirty_huge;
-
-	size_t npageslabs_nonhuge;
-	size_t nactive_nonhuge;
-	size_t ndirty_nonhuge;
-	size_t nretained_nonhuge;
-
-	size_t sec_bytes;
-	CTL_M2_GET("stats.arenas.0.hpa_sec_bytes", i, &sec_bytes, size_t);
-	emitter_kv(emitter, "sec_bytes", "Bytes in small extent cache",
-	    emitter_type_size, &sec_bytes);
-
-	/* First, global stats. */
 	emitter_table_printf(emitter,
 	    "HPA shard stats:\n"
 	    "  Purge passes: %" FMTu64 " (%" FMTu64 " / sec)\n"
@@ -903,7 +892,6 @@ stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
 	    nempty_used, rate_per_second(nempty_used, uptime),
 	    nextracted, rate_per_second(nextracted, uptime));
 
-	emitter_json_object_kv_begin(emitter, "hpa_shard");
 	emitter_json_kv(emitter, "npurge_passes", emitter_type_uint64,
 	    &npurge_passes);
 	emitter_json_kv(emitter, "npurges", emitter_type_uint64,
@@ -922,8 +910,25 @@ stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
 	    &nempty_used);
 	emitter_json_kv(emitter, "nextracted", emitter_type_uint64,
 	    &nextracted);
+}
 
-	/* Next, full slab stats. */
+static void
+stats_arena_hpa_shard_slabs_print(emitter_t *emitter, unsigned i) {
+	emitter_row_t header_row;
+	emitter_row_init(&header_row);
+	emitter_row_t row;
+	emitter_row_init(&row);
+
+	size_t npageslabs_huge;
+	size_t nactive_huge;
+	size_t ndirty_huge;
+
+	size_t npageslabs_nonhuge;
+	size_t nactive_nonhuge;
+	size_t ndirty_nonhuge;
+	size_t nretained_nonhuge;
+
+	/* Full slab stats. */
 	CTL_M2_GET("stats.arenas.0.hpa_shard.full_slabs.npageslabs_huge",
 	    i, &npageslabs_huge, size_t);
 	CTL_M2_GET("stats.arenas.0.hpa_shard.full_slabs.nactive_huge",
@@ -1084,10 +1089,22 @@ stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
 		emitter_json_object_end(emitter);
 	}
 	emitter_json_array_end(emitter); /* End "nonfull_slabs" */
-	emitter_json_object_end(emitter); /* End "hpa_shard" */
 	if (in_gap) {
 		emitter_table_printf(emitter, "                     ---\n");
 	}
+}
+
+static void
+stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
+	stats_arena_hpa_shard_sec_print(emitter, i);
+
+	emitter_json_object_kv_begin(emitter, "hpa_shard");
+
+	stats_arena_hpa_shard_global_print(emitter, i, uptime);
+
+	stats_arena_hpa_shard_slabs_print(emitter, i);
+
+	emitter_json_object_end(emitter); /* End "hpa_shard" */
 }
 
 static void
