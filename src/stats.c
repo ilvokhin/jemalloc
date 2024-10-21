@@ -1095,6 +1095,58 @@ stats_arena_hpa_shard_slabs_print(emitter_t *emitter, unsigned i) {
 }
 
 static void
+stats_arena_hpa_shard_hugified_hist_print(emitter_t *emitter, unsigned i) {
+	emitter_row_t header_row;
+	emitter_row_init(&header_row);
+	emitter_row_t row;
+	emitter_row_init(&row);
+
+	uint64_t count;
+
+	COL_HDR(row, bin, NULL, right, 4, int)
+	COL_HDR(row, range, NULL, right, 43, title)
+	COL_HDR(row, count, NULL, right, 20, uint64)
+
+	size_t stats_arenas_mib[CTL_MAX_DEPTH];
+	CTL_LEAF_PREPARE(stats_arenas_mib, 0, "stats.arenas");
+	stats_arenas_mib[2] = i;
+	CTL_LEAF_PREPARE(stats_arenas_mib, 3, "hpa_shard.hugified_times_ms");
+
+	emitter_table_printf(emitter, "  Hugified times:\n");
+	emitter_table_row(emitter, &header_row);
+	emitter_json_array_kv_begin(emitter, "hugified_times_ms");
+	bool in_gap = false;
+	char buf[HIST_RANGE_BUF_SIZE];
+	for (int bin = 0; bin < HIST_NBINS; ++bin) {
+		stats_arenas_mib[5] = bin;
+		CTL_LEAF(stats_arenas_mib, 6, "count", &count, uint64_t);
+
+		bool in_gap_prev = in_gap;
+		in_gap = (count == 0);
+		if (in_gap_prev && !in_gap) {
+			emitter_table_printf(emitter,
+			    "                     ---\n");
+		}
+		hist_print_bin_range(bin, buf);
+
+		col_bin.int_val = bin;
+		col_range.str_val = buf;
+		col_count.uint64_t_val = count;
+
+		if (!in_gap) {
+			emitter_table_row(emitter, &row);
+		}
+		emitter_json_object_begin(emitter);
+		emitter_json_kv(emitter, "count", emitter_type_uint64, &count);
+		emitter_json_object_end(emitter);
+	}
+	emitter_json_array_end(emitter); /* End "hugified_times_ms" */
+	if (in_gap) {
+		emitter_table_printf(emitter, "                     ---\n");
+	}
+}
+
+static void
 stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
 	stats_arena_hpa_shard_sec_print(emitter, i);
 
@@ -1103,6 +1155,8 @@ stats_arena_hpa_shard_print(emitter_t *emitter, unsigned i, uint64_t uptime) {
 	stats_arena_hpa_shard_global_print(emitter, i, uptime);
 
 	stats_arena_hpa_shard_slabs_print(emitter, i);
+
+	stats_arena_hpa_shard_hugified_hist_print(emitter, i);
 
 	emitter_json_object_end(emitter); /* End "hpa_shard" */
 }

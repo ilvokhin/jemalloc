@@ -6,6 +6,7 @@
 #include "jemalloc/internal/edata_cache.h"
 #include "jemalloc/internal/emap.h"
 #include "jemalloc/internal/exp_grow.h"
+#include "jemalloc/internal/hist.h"
 #include "jemalloc/internal/hpa_hooks.h"
 #include "jemalloc/internal/hpa_opts.h"
 #include "jemalloc/internal/mutex.h"
@@ -106,6 +107,13 @@ struct hpa_shard_nonderived_stats_s {
 	 * Guarded by mtx.
 	 */
 	uint64_t nextracted;
+
+	/*
+	 * The distribution of time of how long pageslab stayed hugified.
+	 *
+	 * Guarded by mtx.
+	 */
+	hist_t hugified_times_ms;
 };
 
 /* Completely derived; only used by CTL. */

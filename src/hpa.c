@@ -216,6 +216,7 @@ hpa_shard_init(hpa_shard_t *shard, hpa_central_t *central, emap_t *emap,
 	shard->stats.ndehugifies_purged = 0;
 	shard->stats.nempty_used = 0;
 	shard->stats.nextracted = 0;
+	hist_init(&shard->stats.hugified_times_ms);
 
 	/*
 	 * Fill these in last, so that if an hpa_shard gets used despite
@@ -253,6 +254,7 @@ hpa_shard_nonderived_stats_accum(hpa_shard_nonderived_stats_t *dst,
 	dst->ndehugifies_purged += src->ndehugifies_purged;
 	dst->nempty_used += src->nempty_used;
 	dst->nextracted += src->nextracted;
+	hist_merge(&dst->hugified_times_ms, &src->hugified_times_ms);
 }
 
 void
@@ -462,6 +464,9 @@ hpa_try_purge(tsdn_t *tsdn, hpa_shard_t *shard) {
 		if (purged) {
 			shard->stats.ndehugifies_purged++;
 		}
+		nstime_t time_hugfied = hpdata_time_hugfied_get(to_purge);
+		hist_add(&shard->stats.hugified_times_ms,
+		    nstime_ms_since(&time_hugfied));
 	}
 
 	/* The hpdata updates. */
@@ -526,7 +531,9 @@ hpa_try_hugify(tsdn_t *tsdn, hpa_shard_t *shard) {
 	}
 
 	psset_update_begin(&shard->psset, to_hugify);
-	hpdata_hugify(to_hugify);
+	nstime_t now;
+	shard->central->hooks.curtime(&now, /* first_reading */ true);
+	hpdata_hugify(to_hugify, now);
 	hpdata_mid_hugify_set(to_hugify, false);
 	hpa_update_purge_hugify_eligibility(tsdn, shard, to_hugify);
 	psset_update_end(&shard->psset, to_hugify);

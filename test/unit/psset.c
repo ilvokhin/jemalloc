@@ -591,7 +591,9 @@ TEST_BEGIN(test_purge_prefers_nonhuge) {
 
 		if (huge_begin <= (uintptr_t)hpdata
 		    && (uintptr_t)hpdata < huge_end) {
-			hpdata_hugify(hpdata);
+			nstime_t now;
+			nstime_init(&now, 1);
+			hpdata_hugify(hpdata, now);
 		}
 
 		hpdata_purge_allowed_set(hpdata, true);
@@ -692,7 +694,9 @@ TEST_BEGIN(test_purge_prefers_empty_huge) {
 		psset_update_begin(&psset, &hpdata_huge[i]);
 		ptr = hpdata_reserve_alloc(&hpdata_huge[i], HUGEPAGE);
 		expect_ptr_eq(hpdata_addr_get(&hpdata_huge[i]), ptr, "");
-		hpdata_hugify(&hpdata_huge[i]);
+		nstime_t now;
+		nstime_init(&now, 1);
+		hpdata_hugify(&hpdata_huge[i], now);
 		hpdata_unreserve(&hpdata_huge[i], ptr, HUGEPAGE);
 		hpdata_purge_allowed_set(&hpdata_huge[i], true);
 		psset_update_end(&psset, &hpdata_huge[i]);

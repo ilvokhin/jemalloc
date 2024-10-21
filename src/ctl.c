@@ -5,6 +5,7 @@
 #include "jemalloc/internal/ctl.h"
 #include "jemalloc/internal/extent_dss.h"
 #include "jemalloc/internal/extent_mmap.h"
+#include "jemalloc/internal/hist.h"
 #include "jemalloc/internal/inspect.h"
 #include "jemalloc/internal/mutex.h"
 #include "jemalloc/internal/nstime.h"
@@ -295,8 +296,11 @@ CTL_PROTO(stats_arenas_i_hpa_shard_nonfull_slabs_j_nactive_nonhuge)
 CTL_PROTO(stats_arenas_i_hpa_shard_nonfull_slabs_j_nactive_huge)
 CTL_PROTO(stats_arenas_i_hpa_shard_nonfull_slabs_j_ndirty_nonhuge)
 CTL_PROTO(stats_arenas_i_hpa_shard_nonfull_slabs_j_ndirty_huge)
-
 INDEX_PROTO(stats_arenas_i_hpa_shard_nonfull_slabs_j)
+
+CTL_PROTO(stats_arenas_i_hpa_shard_hugified_times_ms_j_count)
+INDEX_PROTO(stats_arenas_i_hpa_shard_hugified_times_ms_j)
+
 CTL_PROTO(stats_arenas_i_nthreads)
 CTL_PROTO(stats_arenas_i_uptime)
 CTL_PROTO(stats_arenas_i_dss)
@@ -826,6 +830,21 @@ static const ctl_indexed_node_t stats_arenas_i_hpa_shard_nonfull_slabs_node[] =
 	{INDEX(stats_arenas_i_hpa_shard_nonfull_slabs_j)}
 };
 
+static const ctl_named_node_t stats_arenas_i_hpa_shard_hugified_times_ms_j_node[] = {
+	{NAME("count"),
+		CTL(stats_arenas_i_hpa_shard_hugified_times_ms_j_count)}
+};
+
+static const ctl_named_node_t super_stats_arenas_i_hpa_shard_hugified_times_ms_j_node[] = {
+	{NAME(""),
+		CHILD(named, stats_arenas_i_hpa_shard_hugified_times_ms_j)}
+};
+
+static const ctl_indexed_node_t stats_arenas_i_hpa_shard_hugified_times_ms_node[] =
+{
+	{INDEX(stats_arenas_i_hpa_shard_hugified_times_ms_j)}
+};
+
 static const ctl_named_node_t stats_arenas_i_hpa_shard_node[] = {
 	{NAME("full_slabs"),	CHILD(named,
 	    stats_arenas_i_hpa_shard_full_slabs)},
@@ -844,7 +863,10 @@ static const ctl_named_node_t stats_arenas_i_hpa_shard_node[] = {
 	{NAME("ndehugifies_purged"),
 	    CTL(stats_arenas_i_hpa_shard_ndehugifies_purged)},
 	{NAME("nempty_used"),	CTL(stats_arenas_i_hpa_shard_nempty_used)},
-	{NAME("nextracted"),	CTL(stats_arenas_i_hpa_shard_nextracted)}
+	{NAME("nextracted"),	CTL(stats_arenas_i_hpa_shard_nextracted)},
+
+	{NAME("hugified_times_ms"),	CHILD(indexed,
+	    stats_arenas_i_hpa_shard_hugified_times_ms)},
 };
 
 static const ctl_named_node_t stats_arenas_i_node[] = {
@@ -4150,6 +4172,20 @@ stats_arenas_i_hpa_shard_nonfull_slabs_j_index(tsdn_t *tsdn, const size_t *mib,
 		return NULL;
 	}
 	return super_stats_arenas_i_hpa_shard_nonfull_slabs_j_node;
+}
+
+/* Hugified times histogram. */
+CTL_RO_CGEN(config_stats, stats_arenas_i_hpa_shard_hugified_times_ms_j_count,
+    arenas_i(mib[2])->astats->hpastats.nonderived_stats.hugified_times_ms.bins[mib[5]],
+    uint64_t);
+
+static const ctl_named_node_t *
+stats_arenas_i_hpa_shard_hugified_times_ms_j_index(tsdn_t *tsdn, const size_t *mib,
+    size_t miblen, size_t j) {
+	if (j >= HIST_NBINS) {
+		return NULL;
+	}
+	return super_stats_arenas_i_hpa_shard_hugified_times_ms_j_node;
 }
 
 static bool

@@ -227,7 +227,9 @@ TEST_BEGIN(test_hugify) {
 
 	expect_zu_eq(HUGEPAGE_PAGES / 2, hpdata_ntouched_get(&hpdata), "");
 
-	hpdata_hugify(&hpdata);
+	nstime_t now;
+	nstime_init(&now, 1);
+	hpdata_hugify(&hpdata, now);
 
 	/* Hugeifying should have increased the dirty page count. */
 	expect_zu_eq(HUGEPAGE_PAGES, hpdata_ntouched_get(&hpdata), "");

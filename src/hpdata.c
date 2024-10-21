@@ -22,6 +22,7 @@ hpdata_init(hpdata_t *hpdata, void *addr, uint64_t age) {
 	hpdata_addr_set(hpdata, addr);
 	hpdata_age_set(hpdata, age);
 	hpdata->h_huge = false;
+	nstime_init_zero(&hpdata->h_time_hugified);
 	hpdata->h_alloc_allowed = true;
 	hpdata->h_in_psset_alloc_container = false;
 	hpdata->h_purge_allowed = false;
@@ -312,9 +313,10 @@ hpdata_purge_end(hpdata_t *hpdata, hpdata_purge_state_t *purge_state) {
 }
 
 void
-hpdata_hugify(hpdata_t *hpdata) {
+hpdata_hugify(hpdata_t *hpdata, nstime_t now) {
 	hpdata_assert_consistent(hpdata);
 	hpdata->h_huge = true;
+	hpdata->h_time_hugified = now;
 	fb_set_range(hpdata->touched_pages, HUGEPAGE_PAGES, 0, HUGEPAGE_PAGES);
 	hpdata->h_ntouched = HUGEPAGE_PAGES;
 	hpdata_assert_consistent(hpdata);
@@ -324,5 +326,6 @@ void
 hpdata_dehugify(hpdata_t *hpdata) {
 	hpdata_assert_consistent(hpdata);
 	hpdata->h_huge = false;
+	nstime_init_zero(&hpdata->h_time_hugified);
 	hpdata_assert_consistent(hpdata);
 }

@@ -39,6 +39,9 @@ struct hpdata_s {
 	/* Whether or not we think the hugepage is mapped that way by the OS. */
 	bool h_huge;
 
+	/* When we actually asked OS to hugify hugepage. */
+	nstime_t h_time_hugified;
+
 	/*
 	 * For some properties, we keep parallel sets of bools; h_foo_allowed
 	 * and h_in_psset_foo_container.  This is a decoupling mechanism to
@@ -153,6 +156,12 @@ hpdata_age_set(hpdata_t *hpdata, uint64_t age) {
 static inline bool
 hpdata_huge_get(const hpdata_t *hpdata) {
 	return hpdata->h_huge;
+}
+
+static inline nstime_t
+hpdata_time_hugfied_get(const hpdata_t *hpdata) {
+	assert(hpdata->h_huge);
+	return hpdata->h_time_hugified;
 }
 
 static inline bool
@@ -342,6 +351,9 @@ hpdata_consistent(hpdata_t *hpdata) {
 	if (hpdata->h_huge && hpdata->h_ntouched != HUGEPAGE_PAGES) {
 		return false;
 	}
+	if (hpdata->h_huge && nstime_equals_zero(&hpdata->h_time_hugified)) {
+		return false;
+	}
 	if (hpdata_changing_state_get(hpdata)
 	    && ((hpdata->h_purge_allowed) || hpdata->h_hugify_allowed)) {
 		return false;
@@ -423,7 +435,7 @@ bool hpdata_purge_next(hpdata_t *hpdata, hpdata_purge_state_t *purge_state,
  */
 void hpdata_purge_end(hpdata_t *hpdata, hpdata_purge_state_t *purge_state);
 
-void hpdata_hugify(hpdata_t *hpdata);
+void hpdata_hugify(hpdata_t *hpdata, nstime_t now);
 void hpdata_dehugify(hpdata_t *hpdata);
 
 #endif /* JEMALLOC_INTERNAL_HPDATA_H */
