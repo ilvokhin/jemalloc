@@ -913,6 +913,17 @@ stats_arena_hpa_shard_global_print(emitter_t *emitter, unsigned i,
 }
 
 static void
+get_pageslab_util(size_t nactive, size_t npageslabs, char* util, size_t size) {
+	if (npageslabs == 0) {
+		malloc_snprintf(util, size, "0");
+		return;
+	}
+	if (get_rate_str(nactive, npageslabs * HUGEPAGE_PAGES, util)) {
+		malloc_snprintf(util, size, "?");
+	}
+}
+
+static void
 stats_arena_hpa_shard_slabs_print(emitter_t *emitter, unsigned i) {
 	emitter_row_t header_row;
 	emitter_row_init(&header_row);
@@ -1020,10 +1031,20 @@ stats_arena_hpa_shard_slabs_print(emitter_t *emitter, unsigned i) {
 	COL_HDR(row, npageslabs_huge, NULL, right, 16, size)
 	COL_HDR(row, nactive_huge, NULL, right, 16, size)
 	COL_HDR(row, ndirty_huge, NULL, right, 16, size)
+	COL_HDR(row, justify_spacer_huge, NULL, right, 1, title)
+	COL_HDR(row, util_huge, NULL, right, 9, title)
 	COL_HDR(row, npageslabs_nonhuge, NULL, right, 20, size)
 	COL_HDR(row, nactive_nonhuge, NULL, right, 20, size)
 	COL_HDR(row, ndirty_nonhuge, NULL, right, 20, size)
 	COL_HDR(row, nretained_nonhuge, NULL, right, 20, size)
+	COL_HDR(row, justify_spacer_nonhuge, NULL, right, 1, title)
+	COL_HDR(row, util_nonhuge, NULL, right, 12, title)
+
+	/* Don't want to actually print the name. */
+	header_justify_spacer_huge.str_val = " ";
+	col_justify_spacer_huge.str_val = " ";
+	header_justify_spacer_nonhuge.str_val = " ";
+	col_justify_spacer_nonhuge.str_val = " ";
 
 	size_t stats_arenas_mib[CTL_MAX_DEPTH];
 	CTL_LEAF_PREPARE(stats_arenas_mib, 0, "stats.arenas");
@@ -1060,15 +1081,25 @@ stats_arena_hpa_shard_slabs_print(emitter_t *emitter, unsigned i) {
 			    "                     ---\n");
 		}
 
+		char util_huge[6];
+		get_pageslab_util(nactive_huge, npageslabs_huge, util_huge,
+		    sizeof(util_huge));
+
+		char util_nonhuge[6];
+		get_pageslab_util(nactive_nonhuge, npageslabs_nonhuge,
+		    util_nonhuge, sizeof(util_nonhuge));
+
 		col_size.size_val = sz_pind2sz(j);
 		col_ind.size_val = j;
 		col_npageslabs_huge.size_val = npageslabs_huge;
 		col_nactive_huge.size_val = nactive_huge;
 		col_ndirty_huge.size_val = ndirty_huge;
+		col_util_huge.str_val = util_huge;
 		col_npageslabs_nonhuge.size_val = npageslabs_nonhuge;
 		col_nactive_nonhuge.size_val = nactive_nonhuge;
 		col_ndirty_nonhuge.size_val = ndirty_nonhuge;
 		col_nretained_nonhuge.size_val = nretained_nonhuge;
+		col_util_nonhuge.str_val = util_nonhuge;
 		if (!in_gap) {
 			emitter_table_row(emitter, &row);
 		}
