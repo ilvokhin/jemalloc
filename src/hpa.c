@@ -730,7 +730,10 @@ hpa_alloc_batch_psset(tsdn_t *tsdn, hpa_shard_t *shard, size_t size,
 	 * deferred work, but this is an uncommon path; the simplicity is worth
 	 * it.
 	 */
+	shard->central->hooks.hugify(hpdata_addr_get(ps), HUGEPAGE);
 	malloc_mutex_lock(tsdn, &shard->mtx);
+	hpdata_hugify(ps);
+	shard->stats.nhugifies++;
 	psset_insert(&shard->psset, ps);
 	malloc_mutex_unlock(tsdn, &shard->mtx);
 
