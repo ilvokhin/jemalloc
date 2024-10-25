@@ -59,5 +59,5 @@ hpa_hooks_curtime(nstime_t *r_nstime, bool first_reading) {
 
 static uint64_t
 hpa_hooks_ms_since(nstime_t *past_nstime) {
-	return nstime_ns_since(past_nstime) / 1000 / 1000;
+	return nstime_ms_since(past_nstime);
 }

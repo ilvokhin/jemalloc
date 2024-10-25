@@ -228,6 +228,24 @@ TEST_BEGIN(test_nstime_ns_since) {
 }
 TEST_END
 
+TEST_BEGIN(test_nstime_ms_since) {
+	nstime_t delta;
+
+	nstime_init2(&delta, /* sec */ 1, /* nsec */ 0);
+	for (uint64_t i = 0; i < 10000; i++) {
+		nstime_t now;
+		nstime_init_update(&now);
+
+		nstime_t past;
+		nstime_copy(&past, &now);
+		nstime_subtract(&past, &delta);
+
+		expect_u64_ge(nstime_ms_since(&past), nstime_ms(&delta),
+		    "Incorrect time since result");
+	}
+}
+TEST_END
+
 TEST_BEGIN(test_nstime_monotonic) {
 	nstime_monotonic();
 }
@@ -248,5 +266,6 @@ main(void) {
 	    test_nstime_idivide,
 	    test_nstime_divide,
 	    test_nstime_ns_since,
+	    test_nstime_ms_since,
 	    test_nstime_monotonic);
 }

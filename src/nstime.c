@@ -63,7 +63,7 @@ nstime_ns(const nstime_t *time) {
 }
 
 uint64_t
-nstime_msec(const nstime_t *time) {
+nstime_ms(const nstime_t *time) {
 	nstime_assert_initialized(time);
 	return time->ns / MILLION;
 }
@@ -158,7 +158,7 @@ nstime_divide(const nstime_t *time, const nstime_t *divisor) {
 	return time->ns / divisor->ns;
 }
 
-/* Returns time since *past, w/o updating *past. */
+/* Returns time since *past in nanoseconds, w/o updating *past. */
 uint64_t
 nstime_ns_since(const nstime_t *past) {
 	nstime_assert_initialized(past);
@@ -169,6 +169,12 @@ nstime_ns_since(const nstime_t *past) {
 
 	assert(nstime_compare(&now, past) >= 0);
 	return now.ns - past->ns;
+}
+
+/* Returns time since *past in milliseconds, w/o updating *past. */
+uint64_t
+nstime_ms_since(const nstime_t *past) {
+	return nstime_ns_since(past) / MILLION;
 }
 
 #ifdef _WIN32

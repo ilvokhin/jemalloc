@@ -26,8 +26,8 @@ static const nstime_t nstime_zero = NSTIME_ZERO_INITIALIZER;
 void nstime_init(nstime_t *time, uint64_t ns);
 void nstime_init2(nstime_t *time, uint64_t sec, uint64_t nsec);
 uint64_t nstime_ns(const nstime_t *time);
+uint64_t nstime_ms(const nstime_t *time);
 uint64_t nstime_sec(const nstime_t *time);
-uint64_t nstime_msec(const nstime_t *time);
 uint64_t nstime_nsec(const nstime_t *time);
 void nstime_copy(nstime_t *time, const nstime_t *source);
 int nstime_compare(const nstime_t *a, const nstime_t *b);
@@ -39,6 +39,7 @@ void nstime_imultiply(nstime_t *time, uint64_t multiplier);
 void nstime_idivide(nstime_t *time, uint64_t divisor);
 uint64_t nstime_divide(const nstime_t *time, const nstime_t *divisor);
 uint64_t nstime_ns_since(const nstime_t *past);
+uint64_t nstime_ms_since(const nstime_t *past);
 
 typedef bool (nstime_monotonic_t)(void);
 extern nstime_monotonic_t *JET_MUTABLE nstime_monotonic;
