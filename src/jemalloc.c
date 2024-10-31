@@ -1093,6 +1093,15 @@ validate_hpa_settings(void) {
 	if (opt_hpa_opts.dirty_mult != (fxp_t)-1 && validate_hpa_ratios()) {
 		had_conf_error = true;
 	}
+#ifndef JEMALLOC_HAVE_MADVISE_COLLAPSE
+	if (opt_hpa_opts.hugify_sync) {
+	       had_conf_error = true;
+	       malloc_printf(
+		   "<jemalloc>: hpa_hugify_sync config option is enabled, "
+		   "but MADV_COLLAPSE support was not detected at build "
+		   "time.");
+	}
+#endif
 }
 
 static void
@@ -1565,6 +1574,9 @@ malloc_conf_init_helper(sc_data_t *sc_data, unsigned bin_shard_sizes[SC_NBINS],
 			    opt_hpa_opts.hugify_delay_ms, "hpa_hugify_delay_ms",
 			    0, 0, CONF_DONT_CHECK_MIN, CONF_DONT_CHECK_MAX,
 			    false);
+
+			CONF_HANDLE_BOOL(
+			    opt_hpa_opts.hugify_sync, "hpa_hugify_sync");
 
 			CONF_HANDLE_UINT64_T(
 			    opt_hpa_opts.min_purge_interval_ms,

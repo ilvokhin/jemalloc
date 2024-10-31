@@ -32,6 +32,8 @@ static hpa_shard_opts_t test_hpa_shard_opts_default = {
 	false,
 	/* hugify_delay_ms */
 	10 * 1000,
+	/* hugify_sync */
+	false,
 	/* min_purge_interval_ms */
 	5 * 1000,
 	/* experimental_max_purge_nhp */
@@ -49,6 +51,8 @@ static hpa_shard_opts_t test_hpa_shard_opts_purge = {
 	true,
 	/* hugify_delay_ms */
 	0,
+	/* hugify_sync */
+	false,
 	/* min_purge_interval_ms */
 	5 * 1000,
 	/* experimental_max_purge_nhp */
@@ -371,9 +375,10 @@ defer_test_purge(void *ptr, size_t size) {
 }
 
 static size_t ndefer_hugify_calls = 0;
-static void
-defer_test_hugify(void *ptr, size_t size) {
+static bool
+defer_test_hugify(void *ptr, size_t size, bool sync) {
 	++ndefer_hugify_calls;
+	return false;
 }
 
 static size_t ndefer_dehugify_calls = 0;

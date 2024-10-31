@@ -103,6 +103,7 @@ CTL_PROTO(opt_hpa)
 CTL_PROTO(opt_hpa_slab_max_alloc)
 CTL_PROTO(opt_hpa_hugification_threshold)
 CTL_PROTO(opt_hpa_hugify_delay_ms)
+CTL_PROTO(opt_hpa_hugify_sync)
 CTL_PROTO(opt_hpa_min_purge_interval_ms)
 CTL_PROTO(opt_experimental_hpa_max_purge_nhp)
 CTL_PROTO(opt_hpa_dirty_mult)
@@ -263,6 +264,7 @@ INDEX_PROTO(stats_arenas_i_extents_j)
 CTL_PROTO(stats_arenas_i_hpa_shard_npurge_passes)
 CTL_PROTO(stats_arenas_i_hpa_shard_npurges)
 CTL_PROTO(stats_arenas_i_hpa_shard_nhugifies)
+CTL_PROTO(stats_arenas_i_hpa_shard_nhugify_failures)
 CTL_PROTO(stats_arenas_i_hpa_shard_ndehugifies)
 
 /* We have a set of stats for full slabs. */
@@ -462,6 +464,7 @@ static const ctl_named_node_t opt_node[] = {
 	{NAME("hpa_hugification_threshold"),
 		CTL(opt_hpa_hugification_threshold)},
 	{NAME("hpa_hugify_delay_ms"), CTL(opt_hpa_hugify_delay_ms)},
+	{NAME("hpa_hugify_sync"), CTL(opt_hpa_hugify_sync)},
 	{NAME("hpa_min_purge_interval_ms"), CTL(opt_hpa_min_purge_interval_ms)},
 	{NAME("experimental_hpa_max_purge_nhp"),
 		CTL(opt_experimental_hpa_max_purge_nhp)},
@@ -834,6 +837,8 @@ static const ctl_named_node_t stats_arenas_i_hpa_shard_node[] = {
 	{NAME("npurge_passes"),	CTL(stats_arenas_i_hpa_shard_npurge_passes)},
 	{NAME("npurges"),	CTL(stats_arenas_i_hpa_shard_npurges)},
 	{NAME("nhugifies"),	CTL(stats_arenas_i_hpa_shard_nhugifies)},
+	{NAME("nhugify_failures"),
+	    CTL(stats_arenas_i_hpa_shard_nhugify_failures)},
 	{NAME("ndehugifies"),	CTL(stats_arenas_i_hpa_shard_ndehugifies)}
 };
 
@@ -2200,6 +2205,7 @@ CTL_RO_NL_GEN(opt_hpa, opt_hpa, bool)
 CTL_RO_NL_GEN(opt_hpa_hugification_threshold,
     opt_hpa_opts.hugification_threshold, size_t)
 CTL_RO_NL_GEN(opt_hpa_hugify_delay_ms, opt_hpa_opts.hugify_delay_ms, uint64_t)
+CTL_RO_NL_GEN(opt_hpa_hugify_sync, opt_hpa_opts.hugify_sync, bool)
 CTL_RO_NL_GEN(opt_hpa_min_purge_interval_ms, opt_hpa_opts.min_purge_interval_ms,
     uint64_t)
 CTL_RO_NL_GEN(opt_experimental_hpa_max_purge_nhp,
@@ -4061,6 +4067,9 @@ CTL_RO_CGEN(config_stats, stats_arenas_i_hpa_shard_npurges,
     arenas_i(mib[2])->astats->hpastats.nonderived_stats.npurges, uint64_t);
 CTL_RO_CGEN(config_stats, stats_arenas_i_hpa_shard_nhugifies,
     arenas_i(mib[2])->astats->hpastats.nonderived_stats.nhugifies, uint64_t);
+CTL_RO_CGEN(config_stats, stats_arenas_i_hpa_shard_nhugify_failures,
+    arenas_i(mib[2])->astats->hpastats.nonderived_stats.nhugify_failures,
+    uint64_t);
 CTL_RO_CGEN(config_stats, stats_arenas_i_hpa_shard_ndehugifies,
     arenas_i(mib[2])->astats->hpastats.nonderived_stats.ndehugifies, uint64_t);
 

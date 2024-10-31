@@ -210,6 +210,7 @@ hpa_shard_init(hpa_shard_t *shard, hpa_central_t *central, emap_t *emap,
 	shard->stats.npurge_passes = 0;
 	shard->stats.npurges = 0;
 	shard->stats.nhugifies = 0;
+	shard->stats.nhugify_failures = 0;
 	shard->stats.ndehugifies = 0;
 
 	/*
@@ -242,6 +243,7 @@ hpa_shard_nonderived_stats_accum(hpa_shard_nonderived_stats_t *dst,
 	dst->npurge_passes += src->npurge_passes;
 	dst->npurges += src->npurges;
 	dst->nhugifies += src->nhugifies;
+	dst->nhugify_failures += src->nhugify_failures;
 	dst->ndehugifies += src->ndehugifies;
 }
 
@@ -499,10 +501,23 @@ hpa_try_hugify(tsdn_t *tsdn, hpa_shard_t *shard) {
 
 	malloc_mutex_unlock(tsdn, &shard->mtx);
 
-	shard->central->hooks.hugify(hpdata_addr_get(to_hugify), HUGEPAGE);
+	bool err = shard->central->hooks.hugify(hpdata_addr_get(to_hugify),
+	    HUGEPAGE, shard->opts.hugify_sync);
 
 	malloc_mutex_lock(tsdn, &shard->mtx);
 	shard->stats.nhugifies++;
+	if (err) {
+		/*
+		 * When asynchronious hugification is used
+		 * (shard->opts.hugify_sync option is false), we are not
+		 * expecting to get here, unless something went terrible wrong.
+		 * Because underlying syscall is only setting kernel flag for
+		 * memory range (actual hugification happens asynchroniously
+		 * and we are not getting any feedback about its outcome), we
+		 * expect syscall to be successful all the time.
+		 */
+		shard->stats.nhugify_failures++;
+	}
 
 	psset_update_begin(&shard->psset, to_hugify);
 	hpdata_hugify(to_hugify);

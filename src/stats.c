@@ -844,6 +844,7 @@ stats_arena_hpa_shard_counters_print(emitter_t *emitter, unsigned i,
 	uint64_t npurge_passes;
 	uint64_t npurges;
 	uint64_t nhugifies;
+	uint64_t nhugify_failures;
 	uint64_t ndehugifies;
 
 	CTL_M2_GET("stats.arenas.0.hpa_shard.npurge_passes",
@@ -852,6 +853,8 @@ stats_arena_hpa_shard_counters_print(emitter_t *emitter, unsigned i,
 	    i, &npurges, uint64_t);
 	CTL_M2_GET("stats.arenas.0.hpa_shard.nhugifies",
 	    i, &nhugifies, uint64_t);
+	CTL_M2_GET("stats.arenas.0.hpa_shard.nhugify_failures",
+	    i, &nhugify_failures, uint64_t);
 	CTL_M2_GET("stats.arenas.0.hpa_shard.ndehugifies",
 	    i, &ndehugifies, uint64_t);
 
@@ -860,11 +863,13 @@ stats_arena_hpa_shard_counters_print(emitter_t *emitter, unsigned i,
 	    "  Purge passes: %" FMTu64 " (%" FMTu64 " / sec)\n"
 	    "  Purges: %" FMTu64 " (%" FMTu64 " / sec)\n"
 	    "  Hugeifies: %" FMTu64 " (%" FMTu64 " / sec)\n"
+	    "  Hugify failures: %" FMTu64 " (%" FMTu64 " / sec)\n"
 	    "  Dehugifies: %" FMTu64 " (%" FMTu64 " / sec)\n"
 	    "\n",
 	    npurge_passes, rate_per_second(npurge_passes, uptime),
 	    npurges, rate_per_second(npurges, uptime),
 	    nhugifies, rate_per_second(nhugifies, uptime),
+	    nhugify_failures, rate_per_second(nhugify_failures, uptime),
 	    ndehugifies, rate_per_second(ndehugifies, uptime));
 
 	emitter_json_kv(emitter, "npurge_passes", emitter_type_uint64,
@@ -873,6 +878,8 @@ stats_arena_hpa_shard_counters_print(emitter_t *emitter, unsigned i,
 	    &npurges);
 	emitter_json_kv(emitter, "nhugifies", emitter_type_uint64,
 	    &nhugifies);
+	emitter_json_kv(emitter, "nhugify_failures", emitter_type_uint64,
+	    &nhugify_failures);
 	emitter_json_kv(emitter, "ndehugifies", emitter_type_uint64,
 	    &ndehugifies);
 }
@@ -1578,6 +1585,7 @@ stats_general_print(emitter_t *emitter) {
 	OPT_WRITE_SIZE_T("hpa_slab_max_alloc")
 	OPT_WRITE_SIZE_T("hpa_hugification_threshold")
 	OPT_WRITE_UINT64("hpa_hugify_delay_ms")
+	OPT_WRITE_BOOL("hpa_hugify_sync")
 	OPT_WRITE_UINT64("hpa_min_purge_interval_ms")
 	OPT_WRITE_SSIZE_T("experimental_hpa_max_purge_nhp")
 	if (je_mallctl("opt.hpa_dirty_mult", (void *)&u32v, &u32sz, NULL, 0)

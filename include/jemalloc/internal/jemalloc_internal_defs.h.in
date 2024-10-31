@@ -309,6 +309,13 @@
 #undef JEMALLOC_HAVE_MADVISE_HUGE
 
 /*
+ * Defined if best-effort synchronous collapse of the native
+ * pages mapped by the memory range into transparent huge pages is supported
+ * via MADV_COLLAPSE arguments to madvise(2).
+ */
+#undef JEMALLOC_HAVE_MADVISE_COLLAPSE
+
+/*
  * Methods for purging unused pages differ between operating systems.
  *
  *   madvise(..., MADV_FREE) : This marks pages as being unused, such that they

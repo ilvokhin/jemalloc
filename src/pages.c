@@ -568,6 +568,30 @@ pages_nohuge_unaligned(void *addr, size_t size) {
 }
 
 bool
+pages_collapse(void *addr, size_t size) {
+	assert(PAGE_ADDR2BASE(addr) == addr);
+	assert(PAGE_CEILING(size) == size);
+	/*
+	 * There is one more MADV_COLLAPSE precondition that is not easy to
+	 * express with assert statement.  In order to madvise(addr, size,
+	 * MADV_COLLAPSE) call to be successful, at least one page in the range
+	 * must currently be backed by physical memory.  In particularly, this
+	 * means we can't call pages_collapse on freshly mapped memory region.
+	 * See madvise(2) man page for more details.
+	 */
+#if defined(JEMALLOC_HAVE_MADVISE_COLLAPSE) && \
+    (defined(MADV_COLLAPSE) || defined(JEMALLOC_MADV_COLLAPSE))
+#  if defined(MADV_COLLAPSE)
+	return (madvise(addr, size, MADV_COLLAPSE) != 0);
+#  elif defined(JEMALLOC_MADV_COLLAPSE)
+	return (madvise(addr, size, JEMALLOC_MADV_COLLAPSE) != 0);
+#  endif
+#else
+	return true;
+#endif
+}
+
+bool
 pages_dontdump(void *addr, size_t size) {
 	assert(PAGE_ADDR2BASE(addr) == addr);
 	assert(PAGE_CEILING(size) == size);

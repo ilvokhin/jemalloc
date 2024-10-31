@@ -61,6 +61,14 @@ struct hpa_shard_nonderived_stats_s {
 	 * Guarded by mtx.
 	 */
 	uint64_t nhugifies;
+
+	/*
+	 * The number of times we've tried to hugify a pageslab, but failed.
+	 *
+	 * Guarded by mtx.
+	 */
+	uint64_t nhugify_failures;
+
 	/*
 	 * The number of times we've dehugified a pageslab.
 	 *

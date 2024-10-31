@@ -288,6 +288,7 @@ TEST_BEGIN(test_mallctl_opt) {
 	TEST_MALLCTL_OPT(const char *, dss, always);
 	TEST_MALLCTL_OPT(bool, hpa, always);
 	TEST_MALLCTL_OPT(size_t, hpa_slab_max_alloc, always);
+	TEST_MALLCTL_OPT(bool, hpa_hugify_sync, always);
 	TEST_MALLCTL_OPT(size_t, hpa_sec_nshards, always);
 	TEST_MALLCTL_OPT(size_t, hpa_sec_max_alloc, always);
 	TEST_MALLCTL_OPT(size_t, hpa_sec_max_bytes, always);
