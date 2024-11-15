@@ -1041,44 +1041,6 @@ obtain_malloc_conf(unsigned which_source, char readlink_buf[PATH_MAX + 1]) {
 	return ret;
 }
 
-static bool
-validate_hpa_ratios(void) {
-	size_t hpa_threshold = fxp_mul_frac(HUGEPAGE, opt_hpa_opts.dirty_mult) +
-	    opt_hpa_opts.hugification_threshold;
-	if (hpa_threshold > HUGEPAGE) {
-		return false;
-	}
-
-	char hpa_dirty_mult[FXP_BUF_SIZE];
-	char hugification_threshold[FXP_BUF_SIZE];
-	char normalization_message[256] = {0};
-	fxp_print(opt_hpa_opts.dirty_mult, hpa_dirty_mult);
-	fxp_print(fxp_div(FXP_INIT_INT((unsigned)
-	    (opt_hpa_opts.hugification_threshold >> LG_PAGE)),
-	    FXP_INIT_INT(HUGEPAGE_PAGES)), hugification_threshold);
-	if (!opt_abort_conf) {
-		char normalized_hugification_threshold[FXP_BUF_SIZE];
-		opt_hpa_opts.hugification_threshold +=
-		    HUGEPAGE - hpa_threshold;
-		fxp_print(fxp_div(FXP_INIT_INT((unsigned)
-		    (opt_hpa_opts.hugification_threshold >> LG_PAGE)),
-		    FXP_INIT_INT(HUGEPAGE_PAGES)),
-		    normalized_hugification_threshold);
-		malloc_snprintf(normalization_message,
-		    sizeof(normalization_message), "<jemalloc>: Normalizing "
-		    "HPA settings to avoid pathological behavior, setting "
-		    "hpa_hugification_threshold_ratio: to %s.\n",
-		    normalized_hugification_threshold);
-	}
-	malloc_printf(
-	    "<jemalloc>: Invalid combination of options "
-	    "hpa_hugification_threshold_ratio: %s and hpa_dirty_mult: %s. "
-	    "These values should sum to > 1.0.\n%s", hugification_threshold,
-	    hpa_dirty_mult, normalization_message);
-
-	return true;
-}
-
 static void
 validate_hpa_settings(void) {
 	if (!hpa_supported() || !opt_hpa) {
@@ -1089,9 +1051,6 @@ validate_hpa_settings(void) {
 		malloc_printf(
 		    "<jemalloc>: huge page size (%zu) greater than expected."
 		    "May not be supported or behave as expected.", HUGEPAGE);
-	}
-	if (opt_hpa_opts.dirty_mult != (fxp_t)-1 && validate_hpa_ratios()) {
-		had_conf_error = true;
 	}
 #ifndef JEMALLOC_HAVE_MADVISE_COLLAPSE
 	if (opt_hpa_opts.hugify_sync) {
