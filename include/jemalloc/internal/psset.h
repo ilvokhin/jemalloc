@@ -27,17 +27,6 @@
  */
 #define PSSET_NHUGE 2
 
-/*
- * We keep two purge lists per page size class; one for hugified hpdatas (at
- * index 2*pszind), and one for the non-hugified hpdatas (at index 2*pszind +
- * 1).  This lets us implement a preference for purging non-hugified hpdatas
- * among similarly-dirty ones.
- * We reserve the last two indices for empty slabs, in that case purging
- * hugified ones (which are definitionally all waste) before non-hugified ones
- * (i.e. reversing the order).
- */
-#define PSSET_NPURGE_LISTS (2 * PSSET_NPSIZES)
-
 typedef struct psset_bin_stats_s psset_bin_stats_t;
 struct psset_bin_stats_s {
 	/* How many pageslabs are in this bin? */
@@ -65,11 +54,7 @@ struct psset_stats_s {
 	/* Non-huge and huge slabs. */
 	psset_bin_stats_t slabs[PSSET_NHUGE];
 
-	/*
-	 * The second index is huge stats; nonfull_slabs[pszind][0] contains
-	 * stats for the non-huge slabs in bucket pszind, while
-	 * nonfull_slabs[pszind][1] contains stats for the huge slabs.
-	 */
+	/* Non-full slabs, distinguished for non-huge and huge slabs. */
 	psset_bin_stats_t nonfull_slabs[PSSET_NPSIZES][PSSET_NHUGE];
 
 	/*
@@ -88,9 +73,9 @@ struct psset_s {
 	 * The pageslabs, quantized by the size class of the largest contiguous
 	 * free run of pages in a pageslab.
 	 */
-	hpdata_age_heap_t pageslabs[PSSET_NPSIZES];
+	hpdata_age_heap_t pageslabs[PSSET_NHUGE][PSSET_NPSIZES];
 	/* Bitmap for which set bits correspond to non-empty heaps. */
-	fb_group_t pageslab_bitmap[FB_NGROUPS(PSSET_NPSIZES)];
+	fb_group_t pageslab_bitmap[PSSET_NHUGE][FB_NGROUPS(PSSET_NPSIZES)];
 	psset_stats_t stats;
 	/*
 	 * Slabs with no active allocations, but which are allowed to serve new
@@ -102,9 +87,9 @@ struct psset_s {
 	 * to purge them (with later indices indicating slabs we want to purge
 	 * more).
 	 */
-	hpdata_purge_list_t to_purge[PSSET_NPURGE_LISTS];
+	hpdata_purge_list_t to_purge[PSSET_NHUGE][PSSET_NPSIZES];
 	/* Bitmap for which set bits correspond to non-empty purge lists. */
-	fb_group_t purge_bitmap[FB_NGROUPS(PSSET_NPURGE_LISTS)];
+	fb_group_t purge_bitmap[PSSET_NHUGE][FB_NGROUPS(PSSET_NPSIZES)];
 	/* Slabs which are available to be hugified. */
 	hpdata_hugify_list_t to_hugify;
 };

@@ -705,86 +705,149 @@ TEST_BEGIN(test_insert_remove) {
 }
 TEST_END
 
-TEST_BEGIN(test_purge_prefers_nonhuge) {
-	/*
-	 * All else being equal, we should prefer purging non-huge pages over
-	 * huge ones for non-empty extents.
-	 */
-
-	/* Nothing magic about this constant. */
-	enum {
-		NHP = 23,
-	};
-	hpdata_t *hpdata;
-
+TEST_BEGIN(test_alloc_prefers_huge) {
 	psset_t psset;
 	psset_init(&psset);
 
-	hpdata_t hpdata_huge[NHP];
-	uintptr_t huge_begin = (uintptr_t)&hpdata_huge[0];
-	uintptr_t huge_end = (uintptr_t)&hpdata_huge[NHP];
-	hpdata_t hpdata_nonhuge[NHP];
-	uintptr_t nonhuge_begin = (uintptr_t)&hpdata_nonhuge[0];
-	uintptr_t nonhuge_end = (uintptr_t)&hpdata_nonhuge[NHP];
+	hpdata_t nonhuge;
+	hpdata_init(&nonhuge, /* addr */ NULL, /* age */ 0);
+	psset_insert(&psset, &nonhuge);
 
-	for (size_t i = 0; i < NHP; i++) {
-		hpdata_init(&hpdata_huge[i], (void *)((10 + i) * HUGEPAGE),
-		    123 + i);
-		psset_insert(&psset, &hpdata_huge[i]);
+	hpdata_t huge;
+	hpdata_init(&huge, /* addr */ (void *) HUGEPAGE, /* age */ 1);
+	psset_insert(&psset, &huge);
+	psset_update_begin(&psset, &huge);
+	hpdata_hugify(&huge);
+	psset_update_end(&psset, &huge);
 
-		hpdata_init(&hpdata_nonhuge[i],
-		    (void *)((10 + NHP + i) * HUGEPAGE),
-		    456 + i);
-		psset_insert(&psset, &hpdata_nonhuge[i]);
+	void *huge_allocs[HUGEPAGE_PAGES];
 
+	/* All allocations should be placed on huge pageslab. */
+	for (size_t i = 0; i < HUGEPAGE_PAGES; i++) {
+		hpdata_t *next = psset_pick_alloc(&psset, PAGE);
+
+		expect_ptr_eq(hpdata_addr_get(next), hpdata_addr_get(&huge),
+		    "Picked wrong pageslab to place allocation");
+		expect_u64_eq(hpdata_age_get(next), hpdata_age_get(&huge), "");
+
+		psset_update_begin(&psset, next);
+		huge_allocs[i] = hpdata_reserve_alloc(next, PAGE);
+		psset_update_end(&psset, next);
 	}
-	for (int i = 0; i < 2 * NHP; i++) {
-		hpdata = psset_pick_alloc(&psset, HUGEPAGE * 3 / 4);
-		psset_update_begin(&psset, hpdata);
-		void *ptr;
-		ptr = hpdata_reserve_alloc(hpdata, HUGEPAGE * 3 / 4);
-		/* Ignore the first alloc, which will stick around. */
-		(void)ptr;
-		/*
-		 * The second alloc is to dirty the pages; free it immediately
-		 * after allocating.
-		 */
-		ptr = hpdata_reserve_alloc(hpdata, HUGEPAGE / 4);
-		hpdata_unreserve(hpdata, ptr, HUGEPAGE / 4);
 
-		if (huge_begin <= (uintptr_t)hpdata
-		    && (uintptr_t)hpdata < huge_end) {
-			hpdata_hugify(hpdata);
-		}
+	void *nonhuge_allocs[HUGEPAGE_PAGES];
 
-		hpdata_purge_allowed_set(hpdata, true);
-		psset_update_end(&psset, hpdata);
+	/*
+	 * Now, when huge pageslab is full, we should place allocations on
+	 * non-huge one.
+	 */
+	for (size_t i = 0; i < HUGEPAGE_PAGES; i++) {
+		hpdata_t *next = psset_pick_alloc(&psset, PAGE);
+
+		expect_ptr_eq(hpdata_addr_get(next), hpdata_addr_get(&nonhuge),
+		    "Picked wrong pageslab to place allocation");
+		expect_u64_eq(hpdata_age_get(next), hpdata_age_get(&nonhuge), "");
+
+		psset_update_begin(&psset, next);
+		nonhuge_allocs[i] = hpdata_reserve_alloc(next, PAGE);
+		psset_update_end(&psset, next);
 	}
 
 	/*
-	 * We've got a bunch of 1/8th dirty hpdatas.  It should give us all the
-	 * non-huge ones to purge, then all the huge ones, then refuse to purge
-	 * further.
+	 * Deallocate everything except one page from huge pageslab, because
+	 * empty pageslab is a completely different story.
 	 */
-	for (int i = 0; i < NHP; i++) {
-		hpdata = psset_pick_purge(&psset);
-		assert_true(nonhuge_begin <= (uintptr_t)hpdata
-		    && (uintptr_t)hpdata < nonhuge_end, "");
-		psset_update_begin(&psset, hpdata);
-		test_psset_fake_purge(hpdata);
-		hpdata_purge_allowed_set(hpdata, false);
-		psset_update_end(&psset, hpdata);
+	for (size_t i = 0; i < HUGEPAGE_PAGES - 1; i++) {
+		psset_update_begin(&psset, &huge);
+		hpdata_unreserve(&huge, huge_allocs[i], PAGE);
+		hpdata_purge_allowed_set(&huge, true);
+		psset_update_end(&psset, &huge);
 	}
-	for (int i = 0; i < NHP; i++) {
-		hpdata = psset_pick_purge(&psset);
-		expect_true(huge_begin <= (uintptr_t)hpdata
-		    && (uintptr_t)hpdata < huge_end, "");
-		psset_update_begin(&psset, hpdata);
-		hpdata_dehugify(hpdata);
-		test_psset_fake_purge(hpdata);
-		hpdata_purge_allowed_set(hpdata, false);
-		psset_update_end(&psset, hpdata);
+
+	/* And one page from nonhuge pageslab. */
+	psset_update_begin(&psset, &nonhuge);
+	hpdata_unreserve(&nonhuge, nonhuge_allocs[0], PAGE);
+	hpdata_purge_allowed_set(&nonhuge, true);
+	psset_update_end(&psset, &nonhuge);
+
+	/*
+	 * Next allocation should be placed on huge pageslab, despite the fact
+	 * that nonhuge pageslab is a better fit.
+	 */
+	hpdata_t *next = psset_pick_alloc(&psset, PAGE);
+
+	expect_ptr_eq(hpdata_addr_get(next), hpdata_addr_get(&huge),
+	    "Picked wrong pageslab to place allocation");
+	expect_u64_eq(hpdata_age_get(next), hpdata_age_get(&huge), "");
+}
+TEST_END
+
+static void
+test_do_alloc_dalloc(psset_t *psset, hpdata_t *ps, int nallocs, int ndallocs) {
+	assert(nallocs >= ndallocs);
+
+	VARIABLE_ARRAY(void *, ptrs, nallocs);
+
+	psset_update_begin(psset, ps);
+	for (int i = 0; i < nallocs; i++) {
+		ptrs[i] = hpdata_reserve_alloc(ps, PAGE);
 	}
+	for (int i = 0; i < ndallocs; i++) {
+		hpdata_unreserve(ps, ptrs[i], PAGE);
+	}
+	if (ndallocs > 0) {
+		hpdata_purge_allowed_set(ps, true);
+	}
+	psset_update_end(psset, ps);
+}
+
+TEST_BEGIN(test_purge_prefers_nonhuge) {
+	psset_t psset;
+	psset_init(&psset);
+
+	enum {
+		NALLOCS = 2,
+		NDALLOCS = NALLOCS - 1,
+	};
+
+	hpdata_t nonhuge;
+	hpdata_init(&nonhuge, /* addr */ NULL, /* age */ 0);
+	psset_insert(&psset, &nonhuge);
+	/* Left one active page to make slab non empty. */
+	test_do_alloc_dalloc(&psset, &nonhuge, NALLOCS, NDALLOCS);
+
+	hpdata_t huge;
+	hpdata_init(&huge, /* addr */ (void *) HUGEPAGE, /* age */ 1);
+	psset_insert(&psset, &huge);
+	psset_update_begin(&psset, &huge);
+	hpdata_hugify(&huge);
+	psset_update_end(&psset, &huge);
+	test_do_alloc_dalloc(&psset, &huge, NALLOCS, NDALLOCS);
+
+	/*
+	 * Now both pageslabs have same about of dirty pages, we should purge
+	 * from nonhuge and then, when nothing left there purge from huge.
+	 */
+	hpdata_t* purge = psset_pick_purge(&psset);
+
+	expect_ptr_eq(hpdata_addr_get(purge),
+	    hpdata_addr_get(&nonhuge),
+	    "Picked wrong pageslab to purge from");
+	expect_u64_eq(hpdata_age_get(purge), hpdata_age_get(&nonhuge),
+	    "");
+
+	psset_update_begin(&psset, purge);
+	test_psset_fake_purge(purge);
+	hpdata_purge_allowed_set(purge, hpdata_ndirty_get(purge) > 0);
+	psset_update_end(&psset, purge);
+
+	purge = psset_pick_purge(&psset);
+
+	expect_ptr_eq(hpdata_addr_get(purge),
+	    hpdata_addr_get(&huge),
+	    "Picked wrong pageslab to purge from");
+	expect_u64_eq(hpdata_age_get(purge), hpdata_age_get(&huge),
+	    "");
 }
 TEST_END
 
@@ -907,6 +970,7 @@ main(void) {
 	    test_stats_fullness,
 	    test_oldest_fit,
 	    test_insert_remove,
+	    test_alloc_prefers_huge,
 	    test_purge_prefers_nonhuge,
 	    test_purge_prefers_empty,
 	    test_purge_prefers_empty_huge);
