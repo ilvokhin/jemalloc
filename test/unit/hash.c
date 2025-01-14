@@ -115,8 +115,11 @@ hash_variant_verify_key(hash_variant_t variant, uint8_t *key) {
 	} default: not_reached();
 	}
 
-	computed = (final[0] << 0) | (final[1] << 8) | (final[2] << 16) |
-	    (final[3] << 24);
+	computed =
+	    ((uint32_t)final[0] << 0) |
+	    ((uint32_t)final[1] << 8) |
+	    ((uint32_t)final[2] << 16) |
+	    ((uint32_t)final[3] << 24);
 
 	switch (variant) {
 #ifdef JEMALLOC_BIG_ENDIAN
