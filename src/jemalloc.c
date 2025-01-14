@@ -1546,6 +1546,27 @@ malloc_conf_init_helper(sc_data_t *sc_data, unsigned bin_shard_sizes[SC_NBINS],
 			    opt_hpa_opts.experimental_max_purge_nhp,
 			    "experimental_hpa_max_purge_nhp", -1, SSIZE_MAX);
 
+			CONF_HANDLE_UINT64_T(
+			    opt_hpa_opts.demand_interval_ms,
+			    "hpa_demand_interval_ms", 0,
+			    NSTIME_SEC_MAX * KQU(1000) < QU(UINT64_MAX) ?
+			    NSTIME_SEC_MAX * KQU(1000) : UINT64_MAX,
+			    CONF_CHECK_MIN, CONF_CHECK_MAX, false);
+
+			if (CONF_MATCH("hpa_demand_slack_mult")) {
+				fxp_t ratio;
+				char *end;
+				bool err = fxp_parse(&ratio, v,
+				    &end);
+				if (err || (size_t)(end - v) != vlen) {
+					CONF_ERROR("Invalid conf value",
+					    k, klen, v, vlen);
+				} else {
+					opt_hpa_opts.demand_slack_mult = ratio;
+				}
+				CONF_CONTINUE;
+			}
+
 			if (CONF_MATCH("hpa_dirty_mult")) {
 				if (CONF_MATCH_VALUE("-1")) {
 					opt_hpa_opts.dirty_mult = (fxp_t)-1;

@@ -63,6 +63,11 @@ hpa_supported(void) {
 	return true;
 }
 
+static bool
+hpa_demand_purging_enabled(hpa_shard_t *shard) {
+	return shard->opts.demand_interval_ms > 0;
+}
+
 static void
 hpa_do_consistency_checks(hpa_shard_t *shard) {
 	assert(shard->base != NULL);
@@ -218,6 +223,10 @@ hpa_shard_init(hpa_shard_t *shard, hpa_central_t *central, emap_t *emap,
 	shard->stats.nhugify_failures = 0;
 	shard->stats.ndehugifies = 0;
 
+	if (hpa_demand_purging_enabled(shard)) {
+		demand_init(&shard->demand, shard->opts.demand_interval_ms);
+	}
+
 	/*
 	 * Fill these in last, so that if an hpa_shard gets used despite
 	 * initialization failing, we'll at least crash instead of just
@@ -292,11 +301,34 @@ hpa_adjusted_ndirty(tsdn_t *tsdn, hpa_shard_t *shard) {
 static size_t
 hpa_ndirty_max(tsdn_t *tsdn, hpa_shard_t *shard) {
 	malloc_mutex_assert_owner(tsdn, &shard->mtx);
+	size_t nactive = psset_nactive(&shard->psset);
+	if (hpa_demand_purging_enabled(shard)) {
+		/*
+		 * Here we are trying to estimate maximum amount of dirty
+		 * memory we allowed to have at the moment.  This value consist
+		 * of two components.
+		 *
+		 * 1. Demand: memory we believe will be reused soon and it
+		 *    doesn't make sense to release it back to the system.
+		 * 2. Slack: overhead we think is reasonable to have in
+		 *    exchange of higher hugepages coverage (we'll keep this
+		 *    slack and will not split up hugepages).  Slack is
+		 *    optional.
+		 *
+		 * Both components (demand and slack) are dynamic and depend on
+		 * amount of active memory we observed within sliding window.
+		 */
+		size_t nactive_max = demand_nactive_max(&shard->demand);
+		assert(nactive_max >= nactive);
+		size_t demand = nactive_max - nactive;
+		size_t slack = fxp_mul_frac(nactive_max,
+		    shard->opts.demand_slack_mult);
+		return demand + slack;
+	}
 	if (shard->opts.dirty_mult == (fxp_t)-1) {
 		return (size_t)-1;
 	}
-	return fxp_mul_frac(psset_nactive(&shard->psset),
-	    shard->opts.dirty_mult);
+	return fxp_mul_frac(nactive, shard->opts.dirty_mult);
 }
 
 static bool
@@ -549,6 +581,16 @@ static void
 hpa_shard_maybe_do_deferred_work(tsdn_t *tsdn, hpa_shard_t *shard,
     bool forced) {
 	malloc_mutex_assert_owner(tsdn, &shard->mtx);
+
+	/* Update active memory demand statistics. */
+	if (hpa_demand_purging_enabled(shard)) {
+		nstime_t now;
+		shard->central->hooks.curtime(&now,
+		    /* first_reading */ true);
+		demand_update(&shard->demand, &now,
+		    psset_nactive(&shard->psset));
+	}
+
 	if (!forced && shard->opts.deferral_allowed) {
 		return;
 	}

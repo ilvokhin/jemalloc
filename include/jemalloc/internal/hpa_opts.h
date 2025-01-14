@@ -59,6 +59,18 @@ struct hpa_shard_opts_s {
 	 * Maximum number of hugepages to purge on each purging attempt.
 	 */
 	ssize_t experimental_max_purge_nhp;
+
+	/*
+	 * Time interval to track active memory demand statistics for peak
+	 * demand purging algorithm.
+	 */
+	uint64_t demand_interval_ms;
+
+	/*
+	 * Demand slack multiplier.  Controls amount of slack we are ready to
+	 * tolerate in order to do not split up hugepages.
+	 */
+	fxp_t demand_slack_mult;
 };
 
 #define HPA_SHARD_OPTS_DEFAULT {					\
@@ -83,7 +95,11 @@ struct hpa_shard_opts_s {
 	/* min_purge_interval_ms */					\
 	5 * 1000,							\
 	/* experimental_max_purge_nhp */				\
-	-1								\
+	-1,								\
+	/* demand_interval_ms */					\
+	0,								\
+	/* demand_slack_mult */						\
+	FXP_INIT_PERCENT(5)						\
 }
 
 #endif /* JEMALLOC_INTERNAL_HPA_OPTS_H */

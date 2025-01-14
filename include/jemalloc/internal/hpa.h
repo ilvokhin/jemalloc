@@ -3,6 +3,7 @@
 
 #include "jemalloc/internal/jemalloc_preamble.h"
 #include "jemalloc/internal/base.h"
+#include "jemalloc/internal/demand.h"
 #include "jemalloc/internal/edata_cache.h"
 #include "jemalloc/internal/emap.h"
 #include "jemalloc/internal/exp_grow.h"
@@ -149,6 +150,9 @@ struct hpa_shard_s {
 	 * Last time we performed purge on this shard.
 	 */
 	nstime_t last_purge;
+
+	/* Active memory demand sliding window statistics. */
+	demand_t demand;
 };
 
 bool hpa_hugepage_size_exceeds_limit();
